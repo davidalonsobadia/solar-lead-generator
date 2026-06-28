@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # CORS settings as list of strings
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3002"]
 
+    # Raw API keys accepted by the API-key gateway middleware. They are hashed
+    # (SHA-256) at startup before comparison; configure via the API_KEYS env var.
+    API_KEYS: list[str] = []
+
     # Sentry settings (align with client-portal naming where possible)
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0

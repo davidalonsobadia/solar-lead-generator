@@ -1,17 +1,15 @@
+import hashlib
 import os
 
 import sentry_sdk
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import logger
 from app.api.router import router
 from app.core.config import settings
 from app.core.middleware.api_key import APIKeyMiddleware
-from app.db.session import SessionLocal
-from app.domains.api_clients.api_key_loader import load_active_hashed_keys
 
 
 # Middleware to prevent caching of API responses
@@ -49,11 +47,8 @@ app.add_middleware(
 )
 
 def get_hashed_keys() -> set[str]:
-    db: Session = SessionLocal()
-    try:
-        return load_active_hashed_keys(db)
-    finally:
-        db.close()
+    """SHA-256 hashes of the raw API keys configured via settings.API_KEYS."""
+    return {hashlib.sha256(key.encode()).hexdigest() for key in settings.API_KEYS}
 
 # Skip API key middleware in testing environment
 is_testing = os.environ.get("TESTING") == "1"
