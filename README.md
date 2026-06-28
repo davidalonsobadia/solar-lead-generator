@@ -1,6 +1,7 @@
-# TaskFlow - Full Stack Application
+# SolarLeagGen - Full Stack Application
 
-A modern task management application with FastAPI backend and Next.js frontend, fully containerized with Docker.
+An AI-powered platform for discovering, qualifying, and managing solar installation leads.
+Application with FastAPI backend and Next.js frontend, fully containerized with Docker.
 
 ## 🏗️ Architecture
 
