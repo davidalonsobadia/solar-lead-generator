@@ -418,3 +418,4 @@ one (in dependency order) to hand it off to the Implementer.
 - **Gating de pago en Generate Leads:** fuera del MVP (datos propios), pero conviene fijar si se reintroduce y cómo.
 - **“My Leads” (FE-10):** persistido en BDD vs estado local en el MVP.
 - **Salida de la RFP (FE-11/BE-05):** PDF, email o solo persistencia.
+
