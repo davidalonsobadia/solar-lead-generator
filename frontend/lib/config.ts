@@ -36,6 +36,9 @@ export const config = {
           csv: "/api/v1/imports/csv",
           benchmarks: "/api/v1/imports/benchmarks",
         },
+        properties: {
+          base: "/api/v1/properties",
+        },
       },
       // Frontend API routes (proxy to backend)
       auth: {
@@ -58,6 +61,9 @@ export const config = {
       imports: {
         csv: "/api/imports/csv",
         benchmarks: "/api/imports/benchmarks",
+      },
+      properties: {
+        base: "/api/properties",
       },
     },
   },
