@@ -41,6 +41,8 @@ export const config = {
           byId: (id: string) => `/api/v1/properties/${id}`,
           estimate: (id: string) => `/api/v1/properties/${id}/estimate`,
           leads: (id: string) => `/api/v1/properties/${id}/leads`,
+          leadsExport: (id: string) =>
+            `/api/v1/properties/${id}/leads/export`,
         },
         estimates: {
           byId: (id: string) => `/api/v1/estimates/${id}`,
@@ -73,6 +75,7 @@ export const config = {
         byId: (id: string) => `/api/properties/${id}`,
         estimate: (id: string) => `/api/properties/${id}/estimate`,
         leads: (id: string) => `/api/properties/${id}/leads`,
+        leadsExport: (id: string) => `/api/properties/${id}/leads/export`,
       },
       estimates: {
         byId: (id: string) => `/api/estimates/${id}`,
