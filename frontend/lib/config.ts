@@ -38,6 +38,11 @@ export const config = {
         },
         properties: {
           base: "/api/v1/properties",
+          byId: (id: string) => `/api/v1/properties/${id}`,
+          estimate: (id: string) => `/api/v1/properties/${id}/estimate`,
+        },
+        estimates: {
+          byId: (id: string) => `/api/v1/estimates/${id}`,
         },
       },
       // Frontend API routes (proxy to backend)
@@ -64,6 +69,11 @@ export const config = {
       },
       properties: {
         base: "/api/properties",
+        byId: (id: string) => `/api/properties/${id}`,
+        estimate: (id: string) => `/api/properties/${id}/estimate`,
+      },
+      estimates: {
+        byId: (id: string) => `/api/estimates/${id}`,
       },
     },
   },
@@ -81,5 +91,6 @@ export const config = {
     results: "/results",
     rfp: "/rfp",
     adminImport: "/admin/import",
+    propertyEstimate: (id: string) => `/properties/${id}/estimate`,
   },
 } as const
