@@ -31,6 +31,7 @@ import app.domains.companies.models
 import app.domains.benchmarks.models
 import app.domains.stakeholders.models
 import app.domains.leads.models
+import app.domains.estimates.models
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.db.base import Base
