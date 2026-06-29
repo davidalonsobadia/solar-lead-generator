@@ -10,9 +10,10 @@ estimate already exists.
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -60,3 +61,93 @@ class PropertyListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class CompanyDetail(BaseModel):
+    """A stakeholder's company as shown on the property detail screen."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    website: Optional[str] = None
+    business_industry: Optional[str] = None
+    annual_revenue: Optional[Decimal] = None
+
+
+class StakeholderDetail(BaseModel):
+    """A property's stakeholder (its role) plus the associated company."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: str
+    company: CompanyDetail
+
+
+class EstimateDetail(BaseModel):
+    """The most recent solar estimate for a property, if one exists."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+
+    # Inputs the estimate was generated with.
+    system_size_kw: Optional[Decimal] = None
+    price_per_watt: Optional[Decimal] = None
+    system_losses_pct: Optional[Decimal] = None
+    shading_pct: Optional[Decimal] = None
+    annual_consumption_kwh: Optional[Decimal] = None
+    blended_utility_rate: Optional[Decimal] = None
+    rate_escalation_pct: Optional[Decimal] = None
+    include_bess: Optional[bool] = None
+    incentives: Optional[Any] = None
+
+    # Outputs the engine produced.
+    annual_production_kwh: Optional[Decimal] = None
+    system_cost: Optional[Decimal] = None
+    net_cost: Optional[Decimal] = None
+    annual_savings: Optional[Decimal] = None
+    savings_20yr: Optional[Decimal] = None
+    irr: Optional[Decimal] = None
+    npv: Optional[Decimal] = None
+    simple_payback_years: Optional[Decimal] = None
+    co2_offset_20yr: Optional[Decimal] = None
+
+    status: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class PropertyDetail(BaseModel):
+    """A single property with its stakeholders and most recent estimate.
+
+    Powers ``GET /api/v1/properties/{id}`` (the Estimate/RFP screens): every
+    property field, the property's stakeholders each with their company (only
+    the ``owner`` is materialized in v1), and the latest estimate when one
+    exists.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    external_id: Optional[str] = None
+    address: Optional[str] = None
+    lat: Optional[Decimal] = None
+    lon: Optional[Decimal] = None
+    solar_rooftop_area: Optional[Decimal] = None
+    building_area: Optional[Decimal] = None
+    parcel_area: Optional[Decimal] = None
+    stories: Optional[int] = None
+    zoning: Optional[str] = None
+    parcel_use: Optional[str] = None
+    apn: Optional[str] = None
+    structure_year_built: Optional[int] = None
+    total_parcel_value: Optional[Decimal] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    stakeholders: List[StakeholderDetail] = []
+    estimate: Optional[EstimateDetail] = None
