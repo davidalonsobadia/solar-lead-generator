@@ -26,36 +26,67 @@ export interface ImportCsvResult {
   summary?: ImportSummary
 }
 
+/** Structured result of an industry EUI benchmark import run (CSV-04). */
+export interface BenchmarkImportSummary {
+  rows_ok: number
+  benchmarks_created: number
+  benchmarks_updated: number
+  errors: RowError[]
+}
+
+/** Response envelope returned by the /api/imports/benchmarks route handler. */
+export interface BenchmarkImportResult {
+  success: boolean
+  message?: string
+  summary?: BenchmarkImportSummary
+}
+
+/** POST a CSV file to a route handler and parse its JSON envelope. */
+async function postCsv<T extends { success: boolean; message?: string }>(
+  endpoint: string,
+  file: File,
+): Promise<T> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: formData,
+  })
+
+  // The route handler always responds with JSON, but guard against a
+  // non-JSON body (e.g. a 502 from a misconfigured proxy) so we surface a
+  // meaningful error instead of a SyntaxError.
+  let data: T | null = null
+  try {
+    data = (await response.json()) as T
+  } catch {
+    data = null
+  }
+
+  if (!response.ok || !data) {
+    return {
+      success: false,
+      message:
+        data?.message ||
+        `Upload failed (HTTP ${response.status} ${response.statusText}).`,
+    } as T
+  }
+
+  return data
+}
+
 export const importsApi = {
-  /** Upload a CSV file to the import endpoint and return the summary. */
-  async uploadCsv(file: File): Promise<ImportCsvResult> {
-    const formData = new FormData()
-    formData.append("file", file)
+  /** Upload the property CSV to the import endpoint and return the summary. */
+  uploadCsv(file: File): Promise<ImportCsvResult> {
+    return postCsv<ImportCsvResult>(config.api.endpoints.imports.csv, file)
+  },
 
-    const response = await fetch(config.api.endpoints.imports.csv, {
-      method: "POST",
-      body: formData,
-    })
-
-    // The route handler always responds with JSON, but guard against a
-    // non-JSON body (e.g. a 502 from a misconfigured proxy) so we surface a
-    // meaningful error instead of a SyntaxError.
-    let data: ImportCsvResult | null = null
-    try {
-      data = (await response.json()) as ImportCsvResult
-    } catch {
-      data = null
-    }
-
-    if (!response.ok || !data) {
-      return {
-        success: false,
-        message:
-          data?.message ||
-          `Upload failed (HTTP ${response.status} ${response.statusText}).`,
-      }
-    }
-
-    return data
+  /** Upload the benchmark CSV to the import endpoint and return the summary. */
+  uploadBenchmarks(file: File): Promise<BenchmarkImportResult> {
+    return postCsv<BenchmarkImportResult>(
+      config.api.endpoints.imports.benchmarks,
+      file,
+    )
   },
 }

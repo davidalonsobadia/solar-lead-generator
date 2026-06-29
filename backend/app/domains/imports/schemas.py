@@ -31,3 +31,14 @@ class ImportSummaryResponse(BaseModel):
     stakeholders_created: int
     leads_created: int
     errors: list[RowErrorResponse]
+
+
+class BenchmarkImportSummaryResponse(BaseModel):
+    """Structured result of an industry EUI benchmark import run (CSV-04)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rows_ok: int
+    benchmarks_created: int
+    benchmarks_updated: int
+    errors: list[RowErrorResponse]
