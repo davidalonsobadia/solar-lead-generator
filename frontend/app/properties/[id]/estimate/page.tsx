@@ -6,7 +6,7 @@ import { apiFetch, ApiError } from "@/lib/api-client"
 import { config } from "@/lib/config"
 import { Button } from "@/components/ui/button"
 import { InputsPanel } from "@/components/estimate/inputs-panel"
-import { ResultsPanel } from "@/components/estimate/results-panel"
+import { AdjustSliders } from "@/components/estimate/adjust-sliders"
 import type { PropertyDetail } from "@/features/estimates/api"
 
 interface EstimatePageProps {
@@ -53,7 +53,7 @@ export default async function EstimatePage({ params }: EstimatePageProps) {
 
         <div className="space-y-6">
           <InputsPanel property={property} />
-          <ResultsPanel property={property} />
+          <AdjustSliders property={property} />
         </div>
       </main>
     </div>
