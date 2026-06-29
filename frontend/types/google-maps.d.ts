@@ -12,6 +12,13 @@ declare global {
       lng: number
     }
 
+    interface LatLngBoundsLiteral {
+      north: number
+      south: number
+      east: number
+      west: number
+    }
+
     interface MapOptions {
       center?: LatLngLiteral
       zoom?: number
@@ -22,6 +29,24 @@ declare global {
 
     class Map {
       constructor(element: HTMLElement, options?: MapOptions)
+      fitBounds(bounds: LatLngBoundsLiteral, padding?: number): void
+    }
+
+    interface RectangleOptions {
+      bounds?: LatLngBoundsLiteral
+      map?: Map
+      clickable?: boolean
+      strokeColor?: string
+      strokeOpacity?: number
+      strokeWeight?: number
+      fillColor?: string
+      fillOpacity?: number
+      zIndex?: number
+    }
+
+    class Rectangle {
+      constructor(options?: RectangleOptions)
+      setMap(map: Map | null): void
     }
   }
 }
