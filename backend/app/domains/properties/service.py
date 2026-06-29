@@ -18,6 +18,7 @@ from __future__ import annotations
 from math import ceil
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
@@ -29,10 +30,14 @@ from app.domains.properties.models import Property
 from app.domains.stakeholders.models import Stakeholder, StakeholderRole
 
 from .schemas import (
+    CompanyDetail,
+    EstimateDetail,
+    PropertyDetail,
     PropertyListItem,
     PropertyListResponse,
     PropertySortBy,
     SortOrder,
+    StakeholderDetail,
 )
 
 
@@ -176,3 +181,52 @@ class PropertiesService:
             page_size=page_size,
             total_pages=total_pages,
         )
+
+    def get_property(self, property_id: int) -> PropertyDetail:
+        """Return a property with its stakeholders and most recent estimate.
+
+        Raises ``404`` when no property has the given id. Each stakeholder
+        carries its associated company (only the ``owner`` is materialized in
+        v1). The estimate is the latest one for the property, or ``None`` when
+        none exists.
+        """
+        property_obj = (
+            self.db.query(Property)
+            .filter(Property.id == property_id)
+            .one_or_none()
+        )
+        if property_obj is None:
+            raise HTTPException(status_code=404, detail="Property not found")
+
+        # No ORM relationships are defined in this codebase, so join the
+        # stakeholders to their companies explicitly.
+        stakeholder_rows = (
+            self.db.query(Stakeholder, Company)
+            .join(Company, Company.id == Stakeholder.company_id)
+            .filter(Stakeholder.property_id == property_id)
+            .order_by(Stakeholder.id.asc())
+            .all()
+        )
+
+        latest_estimate = (
+            self.db.query(Estimate)
+            .filter(Estimate.property_id == property_id)
+            .order_by(Estimate.created_at.desc(), Estimate.id.desc())
+            .first()
+        )
+
+        detail = PropertyDetail.model_validate(property_obj)
+        detail.stakeholders = [
+            StakeholderDetail(
+                id=stakeholder.id,
+                role=stakeholder.role.value,
+                company=CompanyDetail.model_validate(company),
+            )
+            for stakeholder, company in stakeholder_rows
+        ]
+        detail.estimate = (
+            EstimateDetail.model_validate(latest_estimate)
+            if latest_estimate is not None
+            else None
+        )
+        return detail

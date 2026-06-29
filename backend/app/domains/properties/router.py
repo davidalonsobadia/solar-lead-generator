@@ -9,14 +9,19 @@ required.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.domains.auth.models import User
 from app.domains.auth.utils import get_verified_user
 
-from .schemas import PropertyListResponse, PropertySortBy, SortOrder
+from .schemas import (
+    PropertyDetail,
+    PropertyListResponse,
+    PropertySortBy,
+    SortOrder,
+)
 from .service import PropertiesService
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -54,3 +59,19 @@ def list_properties(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/{property_id}", response_model=PropertyDetail)
+def get_property(
+    property_id: int = Path(..., ge=1, description="Property id."),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_verified_user),
+) -> PropertyDetail:
+    """Return one property with its stakeholders and most recent estimate.
+
+    Carries every property field, the property's stakeholders each with their
+    associated company (only the ``owner`` is materialized in v1), and the
+    latest estimate when one exists. Responds ``404`` for an unknown id.
+    """
+    service = PropertiesService(db)
+    return service.get_property(property_id)
