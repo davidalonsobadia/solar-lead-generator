@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # CORS settings as list of strings
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3002"]
 
+    # Google API keys (Solar API + server-side Maps usage)
+    GOOGLE_SOLAR_API_KEY: str = ""
+    GOOGLE_MAPS_API_KEY: str = ""
+
     # Sentry settings (align with client-portal naming where possible)
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0

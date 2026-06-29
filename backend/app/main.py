@@ -27,12 +27,12 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(
-    title="TaskFlow API",
-    description="A simple FastAPI starter template with auth, users, and lists",
+    title="Sunscout API",
+    description="AI-powered platform for discovering, qualifying, and managing solar installation leads",
     version="1.0.0"
 )
 
-logger.info("Initializing TaskFlow FastAPI application...")
+logger.info("Initializing Sunscout FastAPI application...")
 
 # Add no-cache middleware first (executes last in response chain)
 app.add_middleware(NoCacheMiddleware)
