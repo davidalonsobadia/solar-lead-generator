@@ -65,9 +65,13 @@ export async function apiFetch<T = any>(
   // Build full URL
   const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`
 
-  // Build headers
+  // Build headers. When the body is FormData we must NOT set Content-Type so
+  // that fetch can generate the correct multipart boundary (used by file
+  // uploads such as the CSV import proxy).
+  const isFormData =
+    typeof FormData !== "undefined" && fetchOptions.body instanceof FormData
   const requestHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     "x-api-key": API_KEY,
     ...(headers as Record<string, string>),
   }
