@@ -31,6 +31,7 @@ from app.domains.stakeholders.models import Stakeholder, StakeholderRole
 from . import engine
 from .google_solar import GoogleSolarError, get_building_insights, no_data_result
 from .models import Estimate
+from .pdf_export import build_estimate_pdf
 from .schemas import EstimateInput, EstimateUpdate
 
 # Defaults applied when an input slider is not supplied, so a bare create still
@@ -188,6 +189,28 @@ class EstimatesService:
         self.db.commit()
         self.db.refresh(estimate)
         return estimate
+
+    def render_pdf(self, estimate_id: int) -> bytes:
+        """Render an estimate (economics + property data) as a one-page PDF.
+
+        Returns the encoded PDF as ``bytes``. Raises ``404`` for an unknown
+        estimate id or when its property no longer exists.
+        """
+        estimate = (
+            self.db.query(Estimate).filter(Estimate.id == estimate_id).one_or_none()
+        )
+        if estimate is None:
+            raise HTTPException(status_code=404, detail="Estimate not found")
+
+        property_obj = (
+            self.db.query(Property)
+            .filter(Property.id == estimate.property_id)
+            .one_or_none()
+        )
+        if property_obj is None:
+            raise HTTPException(status_code=404, detail="Property not found")
+
+        return build_estimate_pdf(estimate, property_obj)
 
     # -- internals ----------------------------------------------------------
 
