@@ -17,6 +17,7 @@ per-user filtering — only a verified user is required.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Path
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -66,6 +67,33 @@ def recalculate_estimate(
     """
     service = EstimatesService(db)
     return service.recalculate_estimate(estimate_id, data)
+
+
+@estimates_router.get(
+    "/{estimate_id}/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def export_estimate_pdf(
+    estimate_id: int = Path(..., ge=1, description="Estimate id."),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_verified_user),
+) -> Response:
+    """Export an estimate as a one-page PDF.
+
+    Renders the Project Economics plus the property data into a clean PDF and
+    returns it as ``application/pdf``. Responds ``404`` for an unknown estimate
+    id.
+    """
+    service = EstimatesService(db)
+    pdf = service.render_pdf(estimate_id)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="estimate-{estimate_id}.pdf"'
+        },
+    )
 
 
 # Combined router exported to ``app.api.router``.

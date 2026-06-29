@@ -16,6 +16,7 @@ bcrypt==4.0.1
 resend
 jinja2
 aiofiles
+reportlab
 pytest
 pytest-asyncio
 pytest-cov
