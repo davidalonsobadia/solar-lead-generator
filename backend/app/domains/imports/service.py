@@ -33,6 +33,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import Session
 
+from app.domains.benchmarks.models import IndustryEnergyBenchmark
 from app.domains.companies.models import Company
 from app.domains.leads.models import Lead
 from app.domains.properties.models import Property
@@ -77,6 +78,17 @@ STAKEHOLDER_BLOCK_SIZE = len(STAKEHOLDER_COLUMNS)  # 8
 EXPECTED_HEADER = PROPERTY_COLUMNS + STAKEHOLDER_COLUMNS * len(BLOCK_ROLES)
 EXPECTED_COLUMN_COUNT = len(EXPECTED_HEADER)  # 37
 
+# Benchmark import (CSV-04). This file is name-keyed (a flat
+# ``csv.DictReader``), not positional like the property template. The four
+# optional columns may be omitted entirely; only ``business_industry`` and
+# ``eui_kwh_per_sqft_year`` are required per row.
+BENCHMARK_REQUIRED_COLUMNS = ["business_industry", "eui_kwh_per_sqft_year"]
+BENCHMARK_OPTIONAL_COLUMNS = ["region", "source", "notes"]
+BENCHMARK_COLUMNS = BENCHMARK_REQUIRED_COLUMNS + BENCHMARK_OPTIONAL_COLUMNS
+# Default region when a row leaves ``region`` blank, matching the column's
+# server default on ``industry_energy_benchmarks``.
+DEFAULT_BENCHMARK_REGION = "us"
+
 
 @dataclass
 class RowError:
@@ -108,6 +120,30 @@ class ImportSummary:
             f"companies={self.companies_created} "
             f"stakeholders={self.stakeholders_created} "
             f"leads={self.leads_created} errors={len(self.errors)}"
+        )
+
+
+@dataclass
+class BenchmarkImportSummary:
+    """Structured result of a benchmark import run (CSV-04).
+
+    ``rows_ok`` counts data rows applied without error; ``benchmarks_created``
+    and ``benchmarks_updated`` split those rows into new inserts versus updates
+    of an existing ``(business_industry, region)`` pair. ``errors`` lists the
+    rows that were skipped and why.
+    """
+
+    rows_ok: int = 0
+    benchmarks_created: int = 0
+    benchmarks_updated: int = 0
+    errors: list[RowError] = field(default_factory=list)
+
+    def __str__(self) -> str:  # pragma: no cover - convenience only
+        return (
+            f"rows_ok={self.rows_ok} "
+            f"benchmarks_created={self.benchmarks_created} "
+            f"benchmarks_updated={self.benchmarks_updated} "
+            f"errors={len(self.errors)}"
         )
 
 
@@ -144,6 +180,33 @@ def _parse_int(value: str | None, label: str, errors: list[str]) -> int | None:
         errors.append(f"{label}: not a whole number ({cleaned!r})")
         return None
     return int(number)
+
+
+def _parse_positive_eui(value: str | None, errors: list[str]) -> Decimal | None:
+    """Parse the required EUI cell as a strictly positive, finite decimal.
+
+    A blank cell, a non-numeric value, or a non-positive value is reported as a
+    row error. ``Decimal("nan")`` and ``Decimal("inf")`` are valid constructor
+    calls, so NaN/Infinity are rejected explicitly before the positivity check —
+    otherwise ``NaN <= 0`` would raise ``decimal.InvalidOperation`` (a 500) and
+    ``Infinity`` would slip through as a "positive" value.
+    """
+    cleaned = _clean(value)
+    if cleaned is None:
+        errors.append("eui_kwh_per_sqft_year: required")
+        return None
+    try:
+        number = Decimal(cleaned)
+    except (InvalidOperation, ValueError):
+        errors.append(f"eui_kwh_per_sqft_year: not a valid number ({cleaned!r})")
+        return None
+    if number.is_nan() or number.is_infinite():
+        errors.append(f"eui_kwh_per_sqft_year: not a valid number ({cleaned!r})")
+        return None
+    if number <= 0:
+        errors.append(f"eui_kwh_per_sqft_year: must be positive ({cleaned!r})")
+        return None
+    return number
 
 
 def _parse_location(
@@ -470,3 +533,101 @@ class ImportsService:
             )
             self.db.flush()
             summary.leads_created += 1
+
+    # ------------------------------------------------------------------
+    # Benchmark import (CSV-04)
+    # ------------------------------------------------------------------
+    def import_benchmarks(self, content: str) -> BenchmarkImportSummary:
+        """Import the industry EUI benchmark CSV and return a summary.
+
+        The file is name-keyed: a header row naming the columns, then one row
+        per ``(business_industry, region)`` figure. Required columns are
+        ``business_industry`` and ``eui_kwh_per_sqft_year``; ``region``,
+        ``source`` and ``notes`` are optional. Rows upsert by
+        ``(business_industry, region)`` so re-importing updates in place rather
+        than duplicating.
+
+        Raises :class:`ValueError` if the file is empty or is missing a
+        required column. Per-row problems (missing industry, non-numeric or
+        non-positive EUI) do not raise — they are collected in
+        :attr:`BenchmarkImportSummary.errors` and the batch continues.
+        """
+        reader = csv.DictReader(io.StringIO(content))
+        if reader.fieldnames is None:
+            raise ValueError("CSV is empty: no header row")
+
+        header = [name.strip() for name in reader.fieldnames]
+        missing = [c for c in BENCHMARK_REQUIRED_COLUMNS if c not in header]
+        if missing:
+            raise ValueError(
+                "CSV header is missing required column(s): "
+                f"{', '.join(missing)} "
+                f"(expected columns: {', '.join(BENCHMARK_COLUMNS)})"
+            )
+
+        summary = BenchmarkImportSummary()
+        for line_no, raw_row in enumerate(reader, start=2):
+            # ``csv.DictReader`` keys by the raw (unstripped) header names.
+            row = {key.strip(): value for key, value in raw_row.items()}
+            if not any(_clean(value) for value in row.values()):
+                # Fully blank line (e.g. a trailing newline) — silently ignore.
+                continue
+            self._import_benchmark_row(row, line_no, summary)
+        return summary
+
+    def _import_benchmark_row(
+        self, row: dict[str, str], line_no: int, summary: BenchmarkImportSummary
+    ) -> None:
+        errors: list[str] = []
+
+        industry = _clean(row.get("business_industry"))
+        if industry is None:
+            errors.append("business_industry: required")
+
+        eui = _parse_positive_eui(row.get("eui_kwh_per_sqft_year"), errors)
+        region = _clean(row.get("region")) or DEFAULT_BENCHMARK_REGION
+        source = _clean(row.get("source"))
+        notes = _clean(row.get("notes"))
+
+        if errors or industry is None or eui is None:
+            summary.errors.append(RowError(line=line_no, reason="; ".join(errors)))
+            return
+
+        self._upsert_benchmark(industry, region, eui, source, notes, summary)
+        summary.rows_ok += 1
+
+    def _upsert_benchmark(
+        self,
+        industry: str,
+        region: str,
+        eui: Decimal,
+        source: str | None,
+        notes: str | None,
+        summary: BenchmarkImportSummary,
+    ) -> None:
+        existing = (
+            self.db.query(IndustryEnergyBenchmark)
+            .filter(
+                IndustryEnergyBenchmark.business_industry == industry,
+                IndustryEnergyBenchmark.region == region,
+            )
+            .first()
+        )
+        if existing is None:
+            self.db.add(
+                IndustryEnergyBenchmark(
+                    business_industry=industry,
+                    region=region,
+                    eui_kwh_per_sqft_year=eui,
+                    source=source,
+                    notes=notes,
+                )
+            )
+            self.db.flush()
+            summary.benchmarks_created += 1
+        else:
+            existing.eui_kwh_per_sqft_year = eui
+            existing.source = source
+            existing.notes = notes
+            self.db.flush()
+            summary.benchmarks_updated += 1
