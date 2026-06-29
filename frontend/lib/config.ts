@@ -1,7 +1,12 @@
 export const config = {
   app: {
-    name: "TaskFlow",
-    description: "Modern TODO list platform",
+    name: "Sunscout",
+    description: "AI-powered platform for discovering, qualifying, and managing solar installation leads",
+  },
+  // Google Maps key for the browser. This is the ONLY Google key allowed
+  // client-side and must be domain/referrer-restricted in the Google console.
+  googleMaps: {
+    apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
   },
   api: {
     // Real backend API configuration
