@@ -47,6 +47,10 @@ export const config = {
         estimates: {
           byId: (id: string) => `/api/v1/estimates/${id}`,
         },
+        rfp: {
+          base: "/api/v1/rfp",
+          byId: (id: string) => `/api/v1/rfp/${id}`,
+        },
       },
       // Frontend API routes (proxy to backend)
       auth: {
@@ -79,6 +83,10 @@ export const config = {
       },
       estimates: {
         byId: (id: string) => `/api/estimates/${id}`,
+      },
+      rfp: {
+        base: "/api/rfp",
+        byId: (id: string) => `/api/rfp/${id}`,
       },
     },
   },
