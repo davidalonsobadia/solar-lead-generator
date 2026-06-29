@@ -67,7 +67,10 @@ jobs:
           fi
 
           echo "Triggering issue #${next_issue}"
-          gh issue edit "$next_issue" --repo "$REPO" --add-label "auto"
+          # Must use a PAT here — GITHUB_TOKEN-triggered label events are silently
+          # suppressed by GitHub and will not fire the issues:labeled workflow trigger.
+          GH_TOKEN="${{ secrets.PIPELINE_PAT }}" \
+            gh issue edit "$next_issue" --repo "$REPO" --add-label "auto"
 
       - name: Notify Slack — next issue triggered
         if: steps.next.outputs.next_issue != ''

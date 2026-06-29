@@ -168,9 +168,12 @@ jobs:
           gh issue edit "$ISSUE" --repo "$REPO" --add-label "retry-${NEXT_RETRY}"
 
           # Re-trigger: remove then re-add `auto` so the labeled event fires again.
+          # Must use a PAT — GITHUB_TOKEN-triggered label events are silently suppressed
+          # by GitHub and will not fire the issues:labeled workflow trigger.
           gh issue edit "$ISSUE" --repo "$REPO" --remove-label "auto" 2>/dev/null || true
           sleep 5
-          gh issue edit "$ISSUE" --repo "$REPO" --add-label "auto"
+          GH_TOKEN="${{ secrets.PIPELINE_PAT }}" \
+            gh issue edit "$ISSUE" --repo "$REPO" --add-label "auto"
 
       # -----------------------------------------------------------------------
       # 6. Max retries exceeded — escalate to a human.
