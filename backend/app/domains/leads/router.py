@@ -9,7 +9,7 @@ filtering — only a verified user is required.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -60,4 +60,52 @@ def list_property_leads(
         q=q,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get(
+    "/export",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}}},
+)
+def export_property_leads(
+    property_id: int = Path(..., ge=1, description="Property id."),
+    job_title: str | None = Query(
+        default=None, description="Filter by lead job title (substring, case-insensitive)."
+    ),
+    role: StakeholderRole | None = Query(
+        default=None,
+        description="Filter by stakeholder role: owner, tenant or property_manager.",
+    ),
+    location: str | None = Query(
+        default=None, description="Filter by lead location (substring, case-insensitive)."
+    ),
+    q: str | None = Query(
+        default=None,
+        description="Free-text search over name, job title, email, location and company.",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_verified_user),
+) -> Response:
+    """Export a property's leads as a CSV download.
+
+    Honors the same filters as the leads list (BE-03) but returns every matching
+    row (no pagination), so the file matches the on-screen list. Responds a
+    ``text/csv`` attachment; ``404`` for an unknown property id.
+    """
+    service = LeadsService(db)
+    body = service.export_property_leads_csv(
+        property_id,
+        job_title=job_title,
+        role=role,
+        location=location,
+        q=q,
+    )
+    filename = f"property-{property_id}-leads.csv"
+    return Response(
+        content=body,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
     )

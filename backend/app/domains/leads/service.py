@@ -10,12 +10,14 @@ role so the UI can group by it.
 
 from __future__ import annotations
 
+import csv
+import io
 from math import ceil
 from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from app.core.pagination import paginate_query
 from app.domains.companies.models import Company
@@ -24,6 +26,25 @@ from app.domains.properties.models import Property
 from app.domains.stakeholders.models import Stakeholder, StakeholderRole
 
 from .schemas import LeadCompany, LeadItem, LeadListResponse
+
+# Header row and field order for the leads CSV export. Kept in one place so the
+# header and each row stay in sync.
+EXPORT_COLUMNS = [
+    "id",
+    "name",
+    "job_title",
+    "email",
+    "phone",
+    "linkedin",
+    "lead_location",
+    "role",
+    "company_id",
+    "company_name",
+    "company_website",
+    "company_business_industry",
+    "company_annual_revenue",
+    "created_at",
+]
 
 
 def _escape_like(value: str) -> str:
@@ -37,7 +58,7 @@ class LeadsService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_property_leads(
+    def _build_property_leads_query(
         self,
         property_id: int,
         *,
@@ -45,14 +66,11 @@ class LeadsService:
         role: Optional[StakeholderRole] = None,
         location: Optional[str] = None,
         q: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 25,
-    ) -> LeadListResponse:
-        """Return a filtered, paginated page of leads for one property.
+    ) -> Query:
+        """Build the filtered, ordered ``(Lead, Company, role)`` query.
 
-        Raises ``404`` when no property has the given id. Leads are resolved
-        through the property's stakeholder companies; each item carries its
-        company and the resolving stakeholder role.
+        Raises ``404`` when no property has the given id. Shared by the list and
+        export endpoints so both honor the same BE-03 filters.
         """
         property_exists = (
             self.db.query(Property.id)
@@ -100,7 +118,32 @@ class LeadsService:
 
         # Stable ordering so pagination is deterministic across pages: a lead
         # can appear once per stakeholder role, so tiebreak on the role too.
-        query = query.order_by(Lead.id.asc(), Stakeholder.role.asc())
+        return query.order_by(Lead.id.asc(), Stakeholder.role.asc())
+
+    def list_property_leads(
+        self,
+        property_id: int,
+        *,
+        job_title: Optional[str] = None,
+        role: Optional[StakeholderRole] = None,
+        location: Optional[str] = None,
+        q: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 25,
+    ) -> LeadListResponse:
+        """Return a filtered, paginated page of leads for one property.
+
+        Raises ``404`` when no property has the given id. Leads are resolved
+        through the property's stakeholder companies; each item carries its
+        company and the resolving stakeholder role.
+        """
+        query = self._build_property_leads_query(
+            property_id,
+            job_title=job_title,
+            role=role,
+            location=location,
+            q=q,
+        )
 
         rows, total = paginate_query(query, page, page_size)
 
@@ -133,3 +176,57 @@ class LeadsService:
             page_size=page_size,
             total_pages=total_pages,
         )
+
+    def export_property_leads_csv(
+        self,
+        property_id: int,
+        *,
+        job_title: Optional[str] = None,
+        role: Optional[StakeholderRole] = None,
+        location: Optional[str] = None,
+        q: Optional[str] = None,
+    ) -> str:
+        """Render a property's filtered leads as a CSV document.
+
+        Honors the same BE-03 filters as :meth:`list_property_leads` but returns
+        every matching row (no pagination). Raises ``404`` for an unknown
+        property id. The output always carries the header row, even when empty.
+        """
+        query = self._build_property_leads_query(
+            property_id,
+            job_title=job_title,
+            role=role,
+            location=location,
+            q=q,
+        )
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(EXPORT_COLUMNS)
+
+        for lead, company, role_value in query.all():
+            role_str = (
+                role_value.value
+                if isinstance(role_value, StakeholderRole)
+                else role_value
+            )
+            writer.writerow(
+                [
+                    lead.id,
+                    lead.name,
+                    lead.job_title,
+                    lead.email,
+                    lead.phone,
+                    lead.linkedin,
+                    lead.lead_location,
+                    role_str,
+                    company.id,
+                    company.name,
+                    company.website,
+                    company.business_industry,
+                    company.annual_revenue,
+                    lead.created_at.isoformat() if lead.created_at else None,
+                ]
+            )
+
+        return buffer.getvalue()
