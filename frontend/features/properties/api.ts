@@ -30,10 +30,45 @@ export interface PropertyListResponse {
   total_pages: number
 }
 
+/** Sortable keys exposed by the backend list endpoint (BE-01). */
+export type PropertySortBy =
+  | "rooftop_area"
+  | "building_area"
+  | "leads"
+  | "company_name"
+
+/** Sort direction. */
+export type SortOrder = "asc" | "desc"
+
+/** Query params accepted by the properties list endpoint. */
+export interface PropertyListParams {
+  industry?: string
+  city?: string
+  sortBy?: PropertySortBy
+  order?: SortOrder
+  page?: number
+  pageSize?: number
+}
+
+/** Build the backend query string from list params, omitting empty values. */
+function buildQuery(params: PropertyListParams): string {
+  const search = new URLSearchParams()
+  if (params.industry) search.set("industry", params.industry)
+  if (params.city) search.set("city", params.city)
+  if (params.sortBy) search.set("sort_by", params.sortBy)
+  if (params.order) search.set("order", params.order)
+  if (params.page) search.set("page", String(params.page))
+  if (params.pageSize) search.set("page_size", String(params.pageSize))
+  const query = search.toString()
+  return query ? `?${query}` : ""
+}
+
 export const propertiesApi = {
   /** Fetch a page of properties from the route handler. */
-  async list(): Promise<PropertyListResponse> {
-    const response = await fetch(config.api.endpoints.properties.base)
+  async list(params: PropertyListParams = {}): Promise<PropertyListResponse> {
+    const response = await fetch(
+      `${config.api.endpoints.properties.base}${buildQuery(params)}`,
+    )
 
     let data: unknown = null
     try {
