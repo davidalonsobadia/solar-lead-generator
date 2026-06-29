@@ -40,6 +40,7 @@ export const config = {
           base: "/api/v1/properties",
           byId: (id: string) => `/api/v1/properties/${id}`,
           estimate: (id: string) => `/api/v1/properties/${id}/estimate`,
+          leads: (id: string) => `/api/v1/properties/${id}/leads`,
         },
         estimates: {
           byId: (id: string) => `/api/v1/estimates/${id}`,
@@ -71,6 +72,7 @@ export const config = {
         base: "/api/properties",
         byId: (id: string) => `/api/properties/${id}`,
         estimate: (id: string) => `/api/properties/${id}/estimate`,
+        leads: (id: string) => `/api/properties/${id}/leads`,
       },
       estimates: {
         byId: (id: string) => `/api/estimates/${id}`,
@@ -92,5 +94,6 @@ export const config = {
     rfp: "/rfp",
     adminImport: "/admin/import",
     propertyEstimate: (id: string) => `/properties/${id}/estimate`,
+    propertyLeads: (id: string) => `/properties/${id}/leads`,
   },
 } as const
