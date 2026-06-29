@@ -63,6 +63,17 @@ function buildQuery(params: LeadListParams): string {
 }
 
 export const leadsApi = {
+  /**
+   * Build the route-handler URL that streams the leads CSV export (BE-04),
+   * honoring the active filters. Navigating to it triggers a file download.
+   */
+  exportUrl(
+    propertyId: string | number,
+    params: LeadListParams = {},
+  ): string {
+    return `${config.api.endpoints.properties.leadsExport(String(propertyId))}${buildQuery(params)}`
+  },
+
   /** Fetch a page of leads for a property from the route handler. */
   async list(
     propertyId: string | number,

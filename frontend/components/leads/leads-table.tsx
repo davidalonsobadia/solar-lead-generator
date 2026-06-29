@@ -22,7 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { leadsApi, type LeadItem } from "@/features/leads/api"
+import { AppointmentsModal } from "@/components/leads/appointments-modal"
+import {
+  EMPTY_LEAD_FILTERS,
+  LeadsToolbar,
+  type LeadFilters,
+} from "@/components/leads/leads-toolbar"
+import { leadsApi, type LeadItem, type LeadListParams } from "@/features/leads/api"
 
 const PAGE_SIZE = 25
 
@@ -47,21 +53,38 @@ function safeHttpsUrl(url: string | null | undefined): string | undefined {
   return url && url.startsWith("https://") ? url : undefined
 }
 
+// Map the UI filter draft to the backend query params, dropping empty values.
+function toListParams(filters: LeadFilters): LeadListParams {
+  return {
+    jobTitle: filters.jobTitle || undefined,
+    role: filters.role || undefined,
+    location: filters.location || undefined,
+    q: filters.q || undefined,
+  }
+}
+
 interface LeadsTableProps {
   propertyId: string
 }
 
-// Generate Leads table (FE-09): decision-makers for a property from
-// GET /api/v1/properties/{id}/leads, with 25/page pagination and row
-// multi-select. Filters/export/actions are out of scope (FE-10).
+// Generate Leads screen (FE-09/FE-10): decision-makers for a property from
+// GET /api/v1/properties/{id}/leads with filters, 25/page pagination and row
+// multi-select. The toolbar drives filters/export, and the selected leads feed
+// the Set Appointments modal.
 export function LeadsTable({ propertyId }: LeadsTableProps) {
   const [items, setItems] = useState<LeadItem[]>([])
+  const [filters, setFilters] = useState<LeadFilters>(EMPTY_LEAD_FILTERS)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState("")
+  const [appointmentsOpen, setAppointmentsOpen] = useState(false)
+  // Track selected leads as full objects (keyed by id) so the appointments
+  // modal can act on selections that span multiple pages.
+  const [selected, setSelected] = useState<Map<number, LeadItem>>(new Map())
 
   useEffect(() => {
     let active = true
@@ -71,6 +94,7 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
       setError("")
       try {
         const data = await leadsApi.list(propertyId, {
+          ...toListParams(filters),
           page,
           pageSize: PAGE_SIZE,
         })
@@ -93,21 +117,28 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
     return () => {
       active = false
     }
-  }, [propertyId, page])
+  }, [propertyId, page, filters])
 
-  // Defensive: if the property changes, go back to the first page so we never
-  // request page N of a property that may only have one page of leads.
+  // Defensive: if the property changes, reset filters/paging so we never request
+  // page N (or a filtered view) of a property that may differ entirely.
   useEffect(() => {
     setPage(1)
+    setFilters(EMPTY_LEAD_FILTERS)
+    setSelected(new Map())
   }, [propertyId])
 
-  function toggleOne(id: number, checked: boolean) {
+  // Reset to the first page whenever the filters change.
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
+
+  function toggleOne(lead: LeadItem, checked: boolean) {
     setSelected((prev) => {
-      const next = new Set(prev)
+      const next = new Map(prev)
       if (checked) {
-        next.add(id)
+        next.set(lead.id, lead)
       } else {
-        next.delete(id)
+        next.delete(lead.id)
       }
       return next
     })
@@ -115,10 +146,10 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
 
   function toggleAll(checked: boolean) {
     setSelected((prev) => {
-      const next = new Set(prev)
+      const next = new Map(prev)
       for (const item of items) {
         if (checked) {
-          next.add(item.id)
+          next.set(item.id, item)
         } else {
           next.delete(item.id)
         }
@@ -126,6 +157,41 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
       return next
     })
   }
+
+  async function handleExport() {
+    setExporting(true)
+    setExportError("")
+    try {
+      const response = await fetch(leadsApi.exportUrl(propertyId, toListParams(filters)))
+      if (!response.ok) {
+        let message = `Failed to export leads (HTTP ${response.status}).`
+        try {
+          const data = await response.json()
+          if (data?.message) message = data.message
+        } catch {
+          // Non-JSON error body; keep the default message.
+        }
+        throw new Error(message)
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `property-${propertyId}-leads.csv`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setExportError(
+        err instanceof Error ? err.message : "Failed to export leads.",
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const selectedLeads = useMemo(() => Array.from(selected.values()), [selected])
 
   // Header checkbox reflects the current page's selection state.
   const pageSelectedCount = useMemo(
@@ -135,46 +201,92 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
   const allPageSelected = items.length > 0 && pageSelectedCount === items.length
   const somePageSelected = pageSelectedCount > 0 && !allPageSelected
 
-  // Only show the skeleton on the very first load. On page changes we keep the
-  // current rows visible (dimmed) so the table doesn't flash empty each click.
-  if (loading && items.length === 0) {
+  const toolbar = (
+    <LeadsToolbar
+      filters={filters}
+      selectedCount={selected.size}
+      exporting={exporting}
+      onApplyFilters={setFilters}
+      onRemoveFilter={(key) =>
+        setFilters((prev) => ({ ...prev, [key]: "" }))
+      }
+      onExport={handleExport}
+      onSetAppointments={() => setAppointmentsOpen(true)}
+    />
+  )
+
+  const exportAlert = exportError ? (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Could not export leads</AlertTitle>
+      <AlertDescription>{exportError}</AlertDescription>
+    </Alert>
+  ) : null
+
+  const appointments = (
+    <AppointmentsModal
+      open={appointmentsOpen}
+      onOpenChange={setAppointmentsOpen}
+      selectedLeads={selectedLeads}
+      onHandledInHouse={() => setSelected(new Map())}
+    />
+  )
+
+  // Only show the skeleton on the very first load. On page/filter changes we
+  // keep the toolbar visible so the user can keep refining the query.
+  if (loading && items.length === 0 && !error) {
     return (
-      <div className="space-y-2">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <Skeleton key={index} className="h-10 w-full rounded-md" />
-        ))}
+      <div className="space-y-4">
+        {toolbar}
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <Skeleton key={index} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+        {appointments}
       </div>
     )
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Could not load leads</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        {toolbar}
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Could not load leads</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        {appointments}
+      </div>
     )
   }
 
   if (items.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Inbox />
-          </EmptyMedia>
-          <EmptyTitle>No leads found</EmptyTitle>
-          <EmptyDescription>
-            This property has no decision-makers resolved yet.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <div className="space-y-4">
+        {toolbar}
+        {exportAlert}
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Inbox />
+            </EmptyMedia>
+            <EmptyTitle>No leads found</EmptyTitle>
+            <EmptyDescription>
+              No decision-makers match the current filters.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+        {appointments}
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      {toolbar}
+      {exportAlert}
       <Table className={loading ? "opacity-60 transition-opacity" : undefined}>
         <TableHeader>
           <TableRow>
@@ -215,7 +327,7 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
                     aria-label={`Select ${lead.name ?? "lead"}`}
                     checked={isSelected}
                     onCheckedChange={(checked) =>
-                      toggleOne(lead.id, checked === true)
+                      toggleOne(lead, checked === true)
                     }
                   />
                 </TableCell>
@@ -284,6 +396,8 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
           </Button>
         </div>
       </div>
+
+      {appointments}
     </div>
   )
 }
