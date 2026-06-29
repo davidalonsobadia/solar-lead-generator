@@ -70,5 +70,10 @@ export const config = {
     resetPassword: "/reset-password",
     lists: "/lists",
     listDetail: (id: string) => `/lists/${id}`,
+    // Sunscout app shell screens (tab navigation)
+    findLeads: "/find-leads",
+    results: "/results",
+    rfp: "/rfp",
+    adminImport: "/admin/import",
   },
 } as const

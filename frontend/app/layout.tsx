@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { config } from "@/lib/config"
 import "./globals.css"
 
 const geist = Geist({
@@ -14,9 +15,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "TaskFlow - Modern TODO Platform",
-  description: "Professional task management platform with lists and todos",
-  generator: "v0.app",
+  title: config.app.name,
+  description: config.app.description,
 }
 
 export default function RootLayout({
