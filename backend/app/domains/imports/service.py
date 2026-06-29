@@ -33,6 +33,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import Session
 
+from app.domains.benchmarks.models import IndustryEnergyBenchmark
 from app.domains.companies.models import Company
 from app.domains.leads.models import Lead
 from app.domains.properties.models import Property
@@ -77,6 +78,20 @@ STAKEHOLDER_BLOCK_SIZE = len(STAKEHOLDER_COLUMNS)  # 8
 EXPECTED_HEADER = PROPERTY_COLUMNS + STAKEHOLDER_COLUMNS * len(BLOCK_ROLES)
 EXPECTED_COLUMN_COUNT = len(EXPECTED_HEADER)  # 37
 
+# Canonical header for the industry EUI benchmarks CSV (see
+# ``docs/benchmarks-csv-format.md``). Columns are name-keyed but read by
+# position, mirroring the property importer. ``region`` defaults to ``us`` when
+# the cell is blank; ``source`` and ``notes`` are optional.
+BENCHMARK_COLUMNS = [
+    "business_industry",
+    "eui_kwh_per_sqft_year",
+    "region",
+    "source",
+    "notes",
+]
+BENCHMARK_COLUMN_COUNT = len(BENCHMARK_COLUMNS)  # 5
+DEFAULT_BENCHMARK_REGION = "us"
+
 
 @dataclass
 class RowError:
@@ -108,6 +123,28 @@ class ImportSummary:
             f"companies={self.companies_created} "
             f"stakeholders={self.stakeholders_created} "
             f"leads={self.leads_created} errors={len(self.errors)}"
+        )
+
+
+@dataclass
+class BenchmarkImportSummary:
+    """Structured result of an industry EUI benchmarks import run.
+
+    ``rows_ok`` counts data rows applied without error; ``benchmarks_created``
+    and ``benchmarks_updated`` split those rows into inserts and upserts (a row
+    whose ``(business_industry, region)`` pair already exists updates it in
+    place). ``errors`` lists the rows that were skipped and why.
+    """
+
+    rows_ok: int = 0
+    benchmarks_created: int = 0
+    benchmarks_updated: int = 0
+    errors: list[RowError] = field(default_factory=list)
+
+    def __str__(self) -> str:  # pragma: no cover - convenience only
+        return (
+            f"rows_ok={self.rows_ok} created={self.benchmarks_created} "
+            f"updated={self.benchmarks_updated} errors={len(self.errors)}"
         )
 
 
@@ -470,3 +507,116 @@ class ImportsService:
             )
             self.db.flush()
             summary.leads_created += 1
+
+    def import_benchmarks(self, content: str) -> BenchmarkImportSummary:
+        """Import the industry EUI benchmarks CSV and return a summary.
+
+        Each row upserts an :class:`IndustryEnergyBenchmark` by its
+        ``(business_industry, region)`` pair. Raises :class:`ValueError` if the
+        file is empty or its header does not match ``BENCHMARK_COLUMNS``.
+        Per-row problems (missing industry, non-numeric or non-positive EUI,
+        wrong column count) are collected in
+        :attr:`BenchmarkImportSummary.errors` and the batch continues.
+        """
+        reader = csv.reader(io.StringIO(content))
+        try:
+            header = next(reader)
+        except StopIteration as exc:
+            raise ValueError("CSV is empty: no header row") from exc
+
+        if [cell.strip() for cell in header] != BENCHMARK_COLUMNS:
+            raise ValueError(
+                "CSV header does not match the benchmarks template "
+                f"(expected {BENCHMARK_COLUMN_COUNT} columns: "
+                f"{', '.join(BENCHMARK_COLUMNS)})"
+            )
+
+        summary = BenchmarkImportSummary()
+        for line_no, raw_row in enumerate(reader, start=2):
+            if not any(_clean(cell) for cell in raw_row):
+                # Fully blank line (e.g. a trailing newline) — silently ignore.
+                continue
+            self._import_benchmark_row(raw_row, line_no, summary)
+        return summary
+
+    def _import_benchmark_row(
+        self, raw_row: list[str], line_no: int, summary: BenchmarkImportSummary
+    ) -> None:
+        if len(raw_row) != BENCHMARK_COLUMN_COUNT:
+            summary.errors.append(
+                RowError(
+                    line=line_no,
+                    reason=(
+                        f"expected {BENCHMARK_COLUMN_COUNT} columns, "
+                        f"got {len(raw_row)}"
+                    ),
+                )
+            )
+            return
+
+        errors: list[str] = []
+        industry = _clean(raw_row[0])
+        if industry is None:
+            errors.append("business_industry: required")
+
+        eui = self._parse_positive_eui(raw_row[1], errors)
+        region = _clean(raw_row[2]) or DEFAULT_BENCHMARK_REGION
+        source = _clean(raw_row[3])
+        notes = _clean(raw_row[4])
+
+        if errors:
+            summary.errors.append(RowError(line=line_no, reason="; ".join(errors)))
+            return
+
+        self._upsert_benchmark(industry, eui, region, source, notes, summary)
+        summary.rows_ok += 1
+
+    @staticmethod
+    def _parse_positive_eui(value: str | None, errors: list[str]) -> Decimal | None:
+        """Parse the EUI cell, which must be present, numeric, and positive."""
+        cleaned = _clean(value)
+        if cleaned is None:
+            errors.append("eui_kwh_per_sqft_year: required")
+            return None
+        try:
+            number = Decimal(cleaned)
+        except (InvalidOperation, ValueError):
+            errors.append(f"eui_kwh_per_sqft_year: not a valid number ({cleaned!r})")
+            return None
+        if number <= 0:
+            errors.append(f"eui_kwh_per_sqft_year: must be positive ({cleaned!r})")
+            return None
+        return number
+
+    def _upsert_benchmark(
+        self,
+        industry: str,
+        eui: Decimal | None,
+        region: str,
+        source: str | None,
+        notes: str | None,
+        summary: BenchmarkImportSummary,
+    ) -> None:
+        existing = (
+            self.db.query(IndustryEnergyBenchmark)
+            .filter_by(business_industry=industry, region=region)
+            .first()
+        )
+        if existing is None:
+            self.db.add(
+                IndustryEnergyBenchmark(
+                    business_industry=industry,
+                    eui_kwh_per_sqft_year=eui,
+                    region=region,
+                    source=source,
+                    notes=notes,
+                )
+            )
+            self.db.flush()
+            summary.benchmarks_created += 1
+        else:
+            existing.eui_kwh_per_sqft_year = eui
+            existing.source = source
+            existing.notes = notes
+            self.db.flush()
+            summary.benchmarks_updated += 1

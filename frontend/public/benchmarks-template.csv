@@ -1,0 +1,4 @@
+business_industry,eui_kwh_per_sqft_year,region,source,notes
+Retail,14.3,us,CBECS 2018,Electrical only.
+Warehouse,8.5,us,CBECS 2018,
+Retail,15.0,california,CEUS 2006,California-specific figure
