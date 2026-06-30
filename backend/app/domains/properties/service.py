@@ -215,7 +215,15 @@ class PropertiesService:
             .first()
         )
 
+        leads_count = (
+            self.db.query(func.count(func.distinct(Lead.id)))
+            .join(Stakeholder, Stakeholder.company_id == Lead.company_id)
+            .filter(Stakeholder.property_id == property_id)
+            .scalar()
+        ) or 0
+
         detail = PropertyDetail.model_validate(property_obj)
+        detail.leads_count = leads_count
         detail.stakeholders = [
             StakeholderDetail(
                 id=stakeholder.id,

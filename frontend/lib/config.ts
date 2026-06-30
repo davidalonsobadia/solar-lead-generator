@@ -1,6 +1,6 @@
 export const config = {
   app: {
-    name: "Sunscout",
+    name: "Solscout",
     description: "AI-powered platform for discovering, qualifying, and managing solar installation leads",
   },
   // Google Maps key for the browser. This is the ONLY Google key allowed

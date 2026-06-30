@@ -91,6 +91,7 @@ export interface PropertyDetail {
   notes: string | null
   created_at: string | null
   updated_at: string | null
+  leads_count: number
   stakeholders: StakeholderDetail[]
   estimate: Estimate | null
 }

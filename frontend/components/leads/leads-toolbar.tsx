@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, type FormEvent } from "react"
-import { CalendarPlus, Download, Search, X } from "lucide-react"
+import { Bookmark, CalendarPlus, Download, Search, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,7 @@ interface LeadsToolbarProps {
   onRemoveFilter: (key: keyof LeadFilters) => void
   onExport: () => void
   onSetAppointments: () => void
+  onSaveToList?: () => void
 }
 
 /**
@@ -75,6 +76,7 @@ export function LeadsToolbar({
   onRemoveFilter,
   onExport,
   onSetAppointments,
+  onSaveToList,
 }: LeadsToolbarProps) {
   const [draft, setDraft] = useState<LeadFilters>(filters)
 
@@ -190,6 +192,18 @@ export function LeadsToolbar({
             <Download className="size-4" />
             {exporting ? "Exporting…" : "Export CSV"}
           </Button>
+          {onSaveToList && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onSaveToList}
+              disabled={selectedCount === 0}
+            >
+              <Bookmark className="size-4" />
+              Save to My List
+              {selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={onSetAppointments}

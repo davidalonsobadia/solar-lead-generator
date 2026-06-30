@@ -149,5 +149,6 @@ class PropertyDetail(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    leads_count: int = 0
     stakeholders: List[StakeholderDetail] = []
     estimate: Optional[EstimateDetail] = None

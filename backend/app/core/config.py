@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Frontend URL for email links (verification, password reset, etc.)
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Set to True in development to skip email verification (users are auto-verified on register)
+    SKIP_EMAIL_VERIFICATION: bool = False
+
     # The actual key should be in the environment variable or .env file
     SECRET_KEY: str = "fallback-secret-c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
 

@@ -1,19 +1,14 @@
-import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
 
 import { apiFetch, ApiError } from "@/lib/api-client"
 import { config } from "@/lib/config"
-import { Button } from "@/components/ui/button"
-import { LeadsTable } from "@/components/leads/leads-table"
+import { LeadsShell } from "@/components/leads/leads-shell"
 import type { PropertyDetail } from "@/features/estimates/api"
 
 interface LeadsPageProps {
   params: Promise<{ id: string }>
 }
 
-// Generate Leads screen (FE-09): fetch the property server-side for the header,
-// then hand the id to the client LeadsTable which loads the paginated leads.
 export default async function LeadsPage({ params }: LeadsPageProps) {
   const { id } = await params
 
@@ -30,29 +25,5 @@ export default async function LeadsPage({ params }: LeadsPageProps) {
     throw error
   }
 
-  const company =
-    property.stakeholders.find((s) => s.role === "owner")?.company.name ??
-    property.address ??
-    `Property #${property.id}`
-
-  return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 space-y-4">
-          <Button asChild variant="ghost" size="sm" className="-ml-2">
-            <Link href={config.routes.results}>
-              <ArrowLeft className="size-4" />
-              Back to results
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">Generate Leads</h1>
-            <p className="text-sm text-muted-foreground">{company}</p>
-          </div>
-        </div>
-
-        <LeadsTable propertyId={id} />
-      </main>
-    </div>
-  )
+  return <LeadsShell property={property} />
 }

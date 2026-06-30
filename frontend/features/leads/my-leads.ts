@@ -46,3 +46,27 @@ export function addToMyLeads(leads: LeadItem[]): number {
   }
   return fresh.length
 }
+
+/** Remove a single lead by id. Returns true if the lead was found and removed. */
+export function removeFromMyLeads(id: number): boolean {
+  if (typeof window === "undefined") return false
+  const existing = getMyLeads()
+  const next = existing.filter((lead) => lead.id !== id)
+  if (next.length === existing.length) return false
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    return false
+  }
+  return true
+}
+
+/** Remove all saved leads. */
+export function clearMyLeads(): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}

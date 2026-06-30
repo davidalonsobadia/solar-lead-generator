@@ -1,17 +1,19 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, Inter_Tight } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { config } from "@/lib/config"
 import "./globals.css"
 
-const geist = Geist({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-geist"
+  variable: "--font-inter",
 })
-const geistMono = Geist_Mono({
+
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: "--font-geist-mono"
+  variable: "--font-inter-tight",
+  weight: ["400", "500", "600", "700", "800"],
 })
 
 export const metadata: Metadata = {
@@ -25,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`dark ${geist.variable} ${geistMono.variable}`} >
-      <body className={`font-sans antialiased`}>
+    <html lang="en" className={`${inter.variable} ${interTight.variable}`}>
+      <body className="font-sans antialiased">
         {children}
         <Analytics />
       </body>

@@ -29,6 +29,7 @@ import {
   type LeadFilters,
 } from "@/components/leads/leads-toolbar"
 import { leadsApi, type LeadItem, type LeadListParams } from "@/features/leads/api"
+import { addToMyLeads } from "@/features/leads/my-leads"
 
 const PAGE_SIZE = 25
 
@@ -85,6 +86,7 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
   // Track selected leads as full objects (keyed by id) so the appointments
   // modal can act on selections that span multiple pages.
   const [selected, setSelected] = useState<Map<number, LeadItem>>(new Map())
+  const [saveNote, setSaveNote] = useState("")
 
   useEffect(() => {
     let active = true
@@ -191,6 +193,17 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
     }
   }
 
+  function handleSaveToList() {
+    const leads = Array.from(selected.values())
+    const added = addToMyLeads(leads)
+    setSaveNote(
+      added === 0
+        ? "Already in your list."
+        : `${added} lead${added !== 1 ? "s" : ""} saved to My List.`,
+    )
+    setTimeout(() => setSaveNote(""), 4000)
+  }
+
   const selectedLeads = useMemo(() => Array.from(selected.values()), [selected])
 
   // Header checkbox reflects the current page's selection state.
@@ -212,8 +225,13 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
       }
       onExport={handleExport}
       onSetAppointments={() => setAppointmentsOpen(true)}
+      onSaveToList={handleSaveToList}
     />
   )
+
+  const saveAlert = saveNote ? (
+    <p className="text-sm text-[#0D4E5E]">{saveNote}</p>
+  ) : null
 
   const exportAlert = exportError ? (
     <Alert variant="destructive">
@@ -267,6 +285,7 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
       <div className="space-y-4">
         {toolbar}
         {exportAlert}
+      {saveAlert}
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -287,6 +306,7 @@ export function LeadsTable({ propertyId }: LeadsTableProps) {
     <div className="space-y-4">
       {toolbar}
       {exportAlert}
+      {saveAlert}
       <Table className={loading ? "opacity-60 transition-opacity" : undefined}>
         <TableHeader>
           <TableRow>

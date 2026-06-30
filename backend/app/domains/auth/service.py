@@ -4,6 +4,8 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+
 from . import models, schemas, utils
 from .tasks import (
     send_password_reset_email_task,
@@ -30,27 +32,29 @@ class AuthService:
             )
 
         # Create new user
-        verification_token = utils.generate_verification_token()
         hashed_password = utils.get_password_hash(payload.password)
+        skip_verify = settings.SKIP_EMAIL_VERIFICATION
+
+        verification_token = None if skip_verify else utils.generate_verification_token()
 
         db_user = models.User(
             name=payload.name,
             email=payload.email,
             hashed_password=hashed_password,
             verification_token=verification_token,
-            is_verified=False
+            is_verified=skip_verify,
         )
 
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
 
-        # Send verification email asynchronously via Celery
-        send_verification_email_task.delay(
-            email=payload.email,
-            name=payload.name,
-            verification_token=verification_token
-        )
+        if not skip_verify:
+            send_verification_email_task.delay(
+                email=payload.email,
+                name=payload.name,
+                verification_token=verification_token,
+            )
 
         return db_user
 
