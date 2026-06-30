@@ -99,12 +99,54 @@ Human: merge PR #2 (one-time kick-off)
 
 ---
 
+## GitHub Setup (required before first run)
+
+### 1. Repository secrets
+
+Go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret | What it is | How to create |
+|---|---|---|
+| `PIPELINE_PAT` | Personal Access Token used to re-add the `auto` label so it fires the `issues:labeled` workflow trigger | See note below |
+| `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token that authenticates the Claude Code GitHub Action | Generate at [claude.ai/settings](https://claude.ai/settings) under **Claude Code → GitHub Actions** |
+| `SLACK_WEBHOOK_URL` | Incoming webhook URL for merge/pipeline notifications | Create an Incoming Webhook app in your Slack workspace |
+
+#### Why `PIPELINE_PAT` is required (not just `GITHUB_TOKEN`)
+
+GitHub **silently suppresses** workflow triggers caused by the built-in `GITHUB_TOKEN`. When `advance-queue` or `auto-retry` add the `auto` label using `GITHUB_TOKEN`, the `issues:labeled` event is never dispatched — so `agent-implement.yml` never fires. A PAT belonging to a real user (or a dedicated machine user) bypasses this restriction and correctly triggers the downstream workflow.
+
+**Required PAT scopes:**
+- `repo` — full repository access (needed to add/remove labels and trigger events)
+
+**Recommended:** create a dedicated GitHub machine account (e.g. `your-org-bot`), grant it write access to the repo, and generate the PAT from that account so pipeline actions are not tied to a personal account.
+
+### 2. Repository settings
+
+- **Settings → General → Pull Requests**: enable **Allow auto-merge**
+- **Settings → Branches → main**: add a branch protection rule with required status checks:
+  - `backend` (from `ci.yml`)
+  - `frontend` (from `ci.yml`)
+  - `review` (from `agent-review.yml`)
+
+### 3. Issue labels
+
+Create these labels in **Issues → Labels** (the workflows expect them to exist):
+
+| Label | Suggested color |
+|---|---|
+| `auto` | `#0075ca` (blue) |
+| `retry-1` | `#e4e669` (yellow) |
+| `retry-2` | `#e4a232` (orange) |
+| `retry-3` | `#d93f0b` (red) |
+| `needs-human` | `#b60205` (dark red) |
+| `no-auto` | `#cccccc` (grey) |
+| `epic` | `#7057ff` (purple) |
+
+---
+
 ## How to start the pipeline
 
-1. Ensure GitHub repo settings:
-   - **Settings → General → Pull Requests**: enable "Allow auto-merge"
-   - **Settings → Branches → main**: branch protection rule requiring status checks
-     `backend`, `frontend` (from `ci.yml`) and `review` (from `agent-review.yml`)
+1. Complete the GitHub Setup steps above.
 
 2. Merge the current open PR to kick off the first advance-queue run.
 
