@@ -4,15 +4,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: quick-social-api
-    image: taskflow-backend:latest
+    container_name: solar-lead-gen-api
+    image: solar-lead-gen-backend:latest
     command: ["/wait-for-postgres.sh", "db", "python", "start.py"]
     env_file:
       - ./backend/.env
     environment:
       - RUN_MIGRATIONS=1
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/taskflow_db
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/solar_lead_gen_db
       - INSTALL_DEPS_ON_START=${INSTALL_DEPS_ON_START:-0}
     ports:
       - "${API_PORT:-8000}:8000"
@@ -25,7 +25,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; response = urllib.request.urlopen(\"http://localhost:8000/api/v1/health\"); exit(0 if response.status == 200 else 1)'"]
       interval: 30s
@@ -39,14 +39,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: taskflow-backend:latest
-    container_name: quick-social-worker
+    image: solar-lead-gen-backend:latest
+    container_name: solar-lead-gen-worker
     command: celery -A app.celery_app.celery worker --loglevel=info
     env_file:
       - ./backend/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/taskflow_db
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/solar_lead_gen_db
     volumes:
       - ./backend:/app
       - pip_cache:/root/.cache/pip
@@ -56,7 +56,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.celery_app.celery inspect ping"]
       interval: 30s
@@ -71,8 +71,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: ${FRONTEND_BUILD_TARGET:-development}
-    container_name: quick-social-frontend
-    image: taskflow-frontend:latest
+    container_name: solar-lead-gen-frontend
+    image: solar-lead-gen-frontend:latest
     env_file:
       - ./frontend/.env
     environment:
@@ -89,7 +89,7 @@ services:
       api:
         condition: service_healthy
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
       interval: 30s
@@ -101,11 +101,11 @@ services:
   # Redis - Message broker for Celery
   redis:
     image: redis:7
-    container_name: quick-social-redis
+    container_name: solar-lead-gen-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -117,17 +117,17 @@ services:
   # PostgreSQL Database
   db:
     image: postgres:15
-    container_name: quick-social-db
+    container_name: solar-lead-gen-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-taskflow_db}
+      POSTGRES_DB: ${POSTGRES_DB:-solar_lead_gen_db}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -153,7 +153,7 @@ services:
       - api
       - frontend
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/v1/health"]
       interval: 30s
@@ -165,13 +165,13 @@ services:
   # Adminer - Database management UI (disabled by default)
   adminer:
     image: adminer
-    container_name: quick-social-adminer
+    container_name: solar-lead-gen-adminer
     profiles:
       - tools
     ports:
       - "${ADMINER_PORT:-8080}:8080"
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     depends_on:
       - db
     restart: unless-stopped
@@ -183,5 +183,5 @@ volumes:
   pip_cache:
 
 networks:
-  taskflow-network:
+  solar-lead-gen-network:
     driver: bridge

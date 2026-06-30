@@ -73,7 +73,7 @@ If you want to connect to the backend running via the root `docker-compose.yml`:
    networks:
      frontend-network:
        external: true
-       name: craze_dashboard_taskflow-network
+       name: craze_dashboard_solar-lead-gen-network
    ```
 
 2. Or use the same network name as the root compose file.

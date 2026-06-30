@@ -19,7 +19,7 @@ if settings.SENTRY_DSN and os.environ.get("TESTING") != "1":
 # Configure Celery based on environment
 if os.environ.get("TESTING") == "1":
     # Use eager mode for testing - tasks execute synchronously without Redis
-    celery = Celery("taskflow-celery", broker="memory://")
+    celery = Celery("solar-lead-gen-celery", broker="memory://")
     celery.conf.update(
         task_always_eager=True,
         task_eager_propagates=True,
@@ -27,7 +27,7 @@ if os.environ.get("TESTING") == "1":
     )
 else:
     # Normal mode for production
-    celery = Celery("taskflow-celery", broker=settings.REDIS_URL)
+    celery = Celery("solar-lead-gen-celery", broker=settings.REDIS_URL)
 
 # Auto-discover tasks in domain modules
 # Add task modules here as you create them

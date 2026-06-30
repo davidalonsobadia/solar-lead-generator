@@ -116,7 +116,7 @@ docker-compose logs --tail=100 api
 docker-compose exec api python scripts/create_api_client.py --name "test"
 
 # Access database
-docker-compose exec db psql -U postgres -d taskflow_db
+docker-compose exec db psql -U postgres -d solar_lead_gen_db
 
 # Access Redis CLI
 docker-compose exec redis redis-cli
@@ -147,10 +147,10 @@ ADMINER_PORT=8080        # Adminer port
 # Database Configuration
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-POSTGRES_DB=taskflow_db
+POSTGRES_DB=solar_lead_gen_db
 
 # Application Configuration
-DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/taskflow_db
+DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/solar_lead_gen_db
 REDIS_URL=redis://redis:6379/0
 ```
 
@@ -223,7 +223,7 @@ ports:
 
 ```bash
 # Using psql
-docker-compose exec db psql -U postgres -d taskflow_db
+docker-compose exec db psql -U postgres -d solar_lead_gen_db
 
 # Using Adminer (web UI)
 docker-compose --profile tools up -d
@@ -231,7 +231,7 @@ docker-compose --profile tools up -d
 # Server: db
 # Username: postgres
 # Password: postgres
-# Database: taskflow_db
+# Database: solar_lead_gen_db
 ```
 
 ### **Run Migrations**
@@ -249,10 +249,10 @@ docker-compose exec api alembic revision --autogenerate -m "description"
 
 ```bash
 # Backup
-docker-compose exec db pg_dump -U postgres taskflow_db > backup.sql
+docker-compose exec db pg_dump -U postgres solar_lead_gen_db > backup.sql
 
 # Restore
-docker-compose exec -T db psql -U postgres -d taskflow_db < backup.sql
+docker-compose exec -T db psql -U postgres -d solar_lead_gen_db < backup.sql
 ```
 
 ---
@@ -359,7 +359,7 @@ docker-compose logs -f api
 docker-compose exec api python scripts/create_api_client.py --name "test"
 
 # Database access
-docker-compose exec db psql -U postgres -d taskflow_db
+docker-compose exec db psql -U postgres -d solar_lead_gen_db
 
 # Clean restart
 docker-compose down && docker-compose up --build

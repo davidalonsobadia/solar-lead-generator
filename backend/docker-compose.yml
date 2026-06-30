@@ -3,14 +3,14 @@ services:
   api:
     build: .
     container_name: api
-    image: taskflow-backend:latest
+    image: solar-lead-gen-backend:latest
     command: ["/wait-for-postgres.sh", "db", "python", "start.py"]
     env_file:
       - .env
     environment:
       - RUN_MIGRATIONS=1
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/taskflow_db
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/solar_lead_gen_db
       # Set to 1 in development to auto-install dependencies on start
       - INSTALL_DEPS_ON_START=${INSTALL_DEPS_ON_START:-0}
     ports:
@@ -26,7 +26,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; response = urllib.request.urlopen(\"http://localhost:8000/api/v1/health\"); exit(0 if response.status == 200 else 1)'"]
       interval: 30s
@@ -38,14 +38,14 @@ services:
   # Celery Worker for async tasks
   worker:
     build: .
-    image: taskflow-backend:latest
+    image: solar-lead-gen-backend:latest
     container_name: worker
     command: celery -A app.celery_app.celery worker --loglevel=info
     env_file:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/taskflow_db
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/solar_lead_gen_db
     volumes:
       # Mount source code for hot-reload in development (comment out for production)
       - .:/app
@@ -56,7 +56,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.celery_app.celery inspect ping"]
       interval: 30s
@@ -73,7 +73,7 @@ services:
       # Expose Redis port for local development (comment out for production)
       - "${REDIS_PORT:-6379}:6379"
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -89,14 +89,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-taskflow_db}
+      POSTGRES_DB: ${POSTGRES_DB:-solar_lead_gen_db}
     ports:
       # Expose DB port for local development (comment out for production)
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -121,7 +121,7 @@ services:
     depends_on:
       - api
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/v1/health"]
       interval: 30s
@@ -139,7 +139,7 @@ services:
     ports:
       - "${ADMINER_PORT:-8080}:8080"
     networks:
-      - taskflow-network
+      - solar-lead-gen-network
     depends_on:
       - db
     restart: unless-stopped
@@ -151,5 +151,5 @@ volumes:
   pip_cache:
 
 networks:
-  taskflow-network:
+  solar-lead-gen-network:
     driver: bridge

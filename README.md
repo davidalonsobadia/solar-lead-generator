@@ -159,7 +159,7 @@ docker-compose exec frontend pnpm install
 docker-compose exec api python scripts/create_api_client.py --name "test"
 
 # Access database
-docker-compose exec db psql -U postgres -d taskflow_db
+docker-compose exec db psql -U postgres -d solar_lead_gen_db
 
 # Run migrations
 docker-compose exec api alembic upgrade head
